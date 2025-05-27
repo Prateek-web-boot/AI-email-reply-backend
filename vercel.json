@@ -1,0 +1,18 @@
+{
+  "builds": [
+    {
+      "src": "src/main/java/**/*.java", // Path to your Java source files (can be more specific)
+      "use": "@vercel/java",
+      "config": {
+        "maxLambdaSize": "50mb",
+        "includeFiles": "target/*.jar"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    }
+  ]
+}
