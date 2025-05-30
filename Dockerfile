@@ -9,6 +9,10 @@ COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 
+# --- ADD THIS LINE ---
+RUN chmod +x mvnw # Grant execute permissions to the Maven wrapper script
+# --- END ADDITION ---
+
 # Copy src and build the application
 COPY src ./src
 
