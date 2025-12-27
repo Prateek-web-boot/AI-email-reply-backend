@@ -14,10 +14,10 @@ public class EmailGeneratorService {
 
     private final WebClient webClient;
 
-    @Value("${gemini.api.url}")
-    private String geminiApiUrl;
-    @Value("${gemini.api.key}")
-    private String geminiAPiKey;
+    @Value("${openai.api.url}")
+    private String openAIApiUrl;
+    @Value("${openai.api.key}")
+    private String openAIAPiKey;
 
     public EmailGeneratorService(WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder.build();
@@ -27,47 +27,32 @@ public class EmailGeneratorService {
         //craft a prompt
         String prompt = generatePrompt(emailRequest);
 
-        //generate the request body for gemini api
-/*        Map<String, Object> requestBody = Map.of(
-                "contents", new Object[] {
-                        Map.of("parts", new Object[] {
-                                Map.of("text", prompt)
-                        })
-                }
-        );*/
 
-
-
-        Map<String, Object> textPart = new HashMap<>();
-        textPart.put("text", prompt);
-
-        List<Map<String, Object>> partsList = new ArrayList<>(textPart.size());
-        partsList.add(textPart);
-
-        Map<String, Object> contentObject = new HashMap<>();
-        contentObject.put("parts", partsList);
-
-
-        List<Map<String, Object>> contentList = new ArrayList<>(contentObject.size());
-        contentList.add(contentObject);
-
+        // OpenAI Request Body Structure
         Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("contents", contentList);
+        requestBody.put("model", "gpt-3.5-turbo"); // or "gpt-4o"
+
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "system", "content", "You are a helpful assistant that writes email replies."));
+        messages.add(Map.of("role", "user", "content", prompt));
+
+        requestBody.put("messages", messages);
 
 
-        
-        //make a request and store the response
-        String response = webClient.post()
-                .uri(geminiApiUrl + geminiAPiKey)
-                .header("Content-Type", "application/json")
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
+        try{
+            String response = webClient.post()
+                    .uri(openAIApiUrl)
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + openAIAPiKey) // OpenAI uses Bearer token
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
 
-        //return response
-
-        return extractResponseContent(response);
+            return extractResponseContent(response);
+        }catch (Exception e){
+            return "Error calling OpenAI API: " + e.getMessage();
+        }
 
     }
 
@@ -76,15 +61,14 @@ public class EmailGeneratorService {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode rootnode = mapper.readTree(response);
 
-            return rootnode.path("candidates")
+            return rootnode.path("choices")
                     .get(0)
+                    .path("message")
                     .path("content")
-                    .path("parts")
-                    .get(0)
-                    .path("text")
-                    .asText();
+                    .asText()
+                    .trim();
         } catch(Exception e) {
-            return "Error processing request" + e.getMessage();
+            return "Error processing OpenAI request" + e.getMessage();
         }
     }
 
